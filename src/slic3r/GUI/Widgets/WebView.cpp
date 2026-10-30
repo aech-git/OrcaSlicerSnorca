@@ -430,8 +430,8 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
         webView->Create(parent, wxID_ANY, wxString("about:blank"), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
         static_cast<WebViewWebKit *>(webView)->AttachNavigationGate();
 #else
-        const bool created = webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
 #if defined(__linux__)
+        const bool created = webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
         if (!created) {
             BOOST_LOG_TRIVIAL(error) << "[WEBVIEW][linux] wxWebView::Create failed";
         } else if (auto *native_view = static_cast<WebKitWebView *>(webView->GetNativeBackend())) {
@@ -451,6 +451,8 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
         } else {
             BOOST_LOG_TRIVIAL(error) << "[WEBVIEW][linux] wxWebView has no native WebKit backend";
         }
+#else
+        webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
 #endif
 #endif
         webView->SetUserAgent(wxString::Format("SM-Slicer/v%s (%s) Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)", SLIC3R_VERSION,
