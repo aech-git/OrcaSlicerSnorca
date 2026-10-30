@@ -430,7 +430,28 @@ wxWebView* WebView::CreateWebView(wxWindow * parent, wxString const & url)
         webView->Create(parent, wxID_ANY, wxString("about:blank"), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
         static_cast<WebViewWebKit *>(webView)->AttachNavigationGate();
 #else
-        webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+        const bool created = webView->Create(parent, wxID_ANY, url2, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+#if defined(__linux__)
+        if (!created) {
+            BOOST_LOG_TRIVIAL(error) << "[WEBVIEW][linux] wxWebView::Create failed";
+        } else if (auto *native_view = static_cast<WebKitWebView *>(webView->GetNativeBackend())) {
+            // wxWebView reports top-level navigation errors, but an embedded Flutter
+            // page can remain blank when WebKit's separate renderer process exits.
+            // Log that event without changing WebKit's handling or loading policy.
+            g_signal_connect(native_view, "web-process-terminated",
+                G_CALLBACK(+[](WebKitWebView *, int reason, gpointer) {
+                    BOOST_LOG_TRIVIAL(error) << "[WEBVIEW][linux] WebKit web process terminated, reason=" << reason;
+                }), nullptr);
+            g_signal_connect(native_view, "load-failed",
+                G_CALLBACK(+[](WebKitWebView *, int, const gchar *, GError *error, gpointer) -> gboolean {
+                    BOOST_LOG_TRIVIAL(warning) << "[WEBVIEW][linux] WebKit load failed: "
+                                               << (error && error->message ? error->message : "unknown");
+                    return FALSE; // Preserve WebKit's normal error handling.
+                }), nullptr);
+        } else {
+            BOOST_LOG_TRIVIAL(error) << "[WEBVIEW][linux] wxWebView has no native WebKit backend";
+        }
+#endif
 #endif
         webView->SetUserAgent(wxString::Format("SM-Slicer/v%s (%s) Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)", SLIC3R_VERSION,
                                                Slic3r::GUI::wxGetApp().dark_mode() ? "dark" : "light"));
